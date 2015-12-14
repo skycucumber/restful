@@ -1,0 +1,70 @@
+from flask import Flask, request
+from flask_restful import Resource, Api
+from Utils import Util, ProtocolItem
+import json, threading
+from DB import mongo
+
+
+app = Flask(__name__)
+api = Api(app)
+app.debug = True
+
+class HelloWorld(Resource):
+    def get(self):
+        return {'hello': 'world'}
+
+
+api.add_resource(HelloWorld, '/a')
+
+
+class Messages(Resource):
+    def post(self):
+        pass
+        print "POST a Message:", request.data,"--"
+        body = json.loads(request.data)
+        if body[ProtocolItem.MESSAGES][ProtocolItem.DEST_TYPE] == ProtocolItem.VALUE_IOS:
+            threading.Thread(target=Util.push_ios,args=([body[ProtocolItem.MESSAGES][ProtocolItem.DEST_ID]], "alarm", body[ProtocolItem.MESSAGES][ProtocolItem.CONTENT])).start()
+#            Util.push_ios([body[ProtocolItem.MESSAGES][ProtocolItem.DEST_ID]], 'alarm', body[ProtocolItem.MESSAGES][ProtocolItem.CONTENT])
+        return {'_id':'0'}
+
+    def get(self):
+        return {'get':'None'}
+
+
+api.add_resource(Messages, '/api/messages')
+
+
+class Gateway(Resource):
+    def post(self):
+        print "POST a Gateway:", request.data,"--"
+        body = json.loads(request.data)
+        _id = mongo.UpsertGateway(body[ProtocolItem.ADDGATEWAY][ProtocolItem.GATEWAY])
+        resp = {'_id':str(_id)}
+        return resp
+    
+    def delete(self, id):
+        print "DELETE a Gateway<id:%d>:%s--" % (id,request.data)
+        body = json.loads(request.data)
+        return {'deleted_count':mongo.DeleteGateway(body[ProtocolItem.DELETEGATEWAY][ProtocolItem.GATEWAY])}
+
+    def put(self, id):
+        print "PUT a Gateway<id:%d>:%s--" % (id,request.data)
+        body = json.loads(request.data)
+        _id = mongo.UpsertGateway(body[ProtocolItem.UPDATEGATEWAY][ProtocolItem.GATEWAY])
+        resp = {'_id':str(_id)}
+        return resp
+
+    def get(self, id):
+        print "GET a Gateway<id:%d>:%s--" % (id,request.data)
+        return mongo.GetGateway(id)
+
+api.add_resource(Gateway, '/api/gateway','/api/gateway/<int:id>')
+
+
+if __name__ == '__main__':
+    app.run(debug=True,port= 5001)
+
+
+
+
+
